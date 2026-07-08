@@ -1,0 +1,120 @@
+#!/bin/bash
+
+# printf parameters information
+print_info()
+{
+echo "Usage:sudo ./DSI-720x1280-show"
+echo "Usage:sudo ./DSI-720x1280-show [[2] [4]]"
+echo "Usage:sudo ./DSI-720x1280-show [[2] [4]] i2c0"
+echo "Usage:sudo ./DSI-720x1280-show [[2] [4]] i2c1"
+echo "Usage:sudo ./DSI-720x1280-show [[2] [4]] i2c1 dsi0"
+echo "Usage:sudo ./DSI-720x1280-show [[2] [4]] i2c0 dsi0"
+echo "2--Using 2 lanes"
+echo "4--Using 4 lanes"
+echo "i2c0--Using I2C0 bus"
+echo "i2c1--Using I2C1 bus"
+echo "dsi0--Using DSI0 interface"
+echo "DSI uses 2lanes DSI1 interface by default"
+echo "If there are no parameters, I2C0 bus and 2 lanes DSI1 interface will be used by default"
+}
+
+clean_config()
+{
+sudo sed -i '/^[^#].*vc4-kms-dsi-waveshare-panel/s/^/#/' /boot/firmware/config.txt
+sudo sed -i "/vc4-kms-dsi-qdtft-panel/d" /boot/firmware/config.txt
+}
+
+deb_version=`cat /etc/debian_version | tr -d '\n'`
+dsi_ch=0
+
+#configue config.txt
+if [ $# -eq 0 ]; then
+clean_config
+sudo echo "dtoverlay=vc4-kms-dsi-qdtft-panel" >> /boot/firmware/config.txt
+dsi_ch=2
+elif [ $# -eq 1 ]; then
+if [ "$1" == "2" ] || [ "$1" == "4" ]; then
+clean_config
+sudo echo "dtoverlay=vc4-kms-dsi-qdtft-panel" >> /boot/firmware/config.txt
+if [ "$1" == "2" ]; then
+dsi_ch=2
+elif [ "$1" == "4" ]; then
+dsi_ch=4
+fi
+else
+echo "Invalid parameter"
+print_info
+exit
+fi
+elif [ $# -eq 2 ]; then
+if [ "$1" == "2" ] || [ "$1" == "4" ]; then
+if [ "$2" == "i2c0" ] || [ "$2" == "i2c1" ]; then
+clean_config
+sudo echo "dtoverlay=vc4-kms-dsi-qdtft-panel,$2" >> /boot/firmware/config.txt
+else
+echo "Invalid parameter"
+print_info
+exit
+fi
+if [ "$1" == "2" ]; then
+dsi_ch=2
+elif [ "$1" == "4" ]; then
+dsi_ch=4
+fi
+else
+echo "Invalid parameter"
+print_info
+exit
+fi
+elif [ $# -eq 3 ]; then
+if [ "$1" == "2" ] || [ "$1" == "4" ]; then
+if [ "$2" == "i2c0" ] || [ "$2" == "i2c1" ]; then
+if [ "$3" == "dsi0" ]; then
+clean_config
+sudo echo "dtoverlay=vc4-kms-dsi-qdtft-panel,$2,$3" >> /boot/firmware/config.txt
+else
+echo "Invalid parameter"
+print_info
+exit
+fi
+else
+echo "Invalid parameter"
+print_info
+exit
+fi
+if [ "$1" == "2" ]; then
+dsi_ch=2
+elif [ "$1" == "4" ]; then
+dsi_ch=4
+fi
+else
+echo "Invalid parameter"
+print_info
+exit
+fi
+else
+print_info
+echo "Too many parameters, Up to three parameters are allowed!"
+exit
+fi
+
+#compile driver
+if [ $dsi_ch -eq 2 ]; then
+if [[ "$deb_version" < "13.5" ]]; then
+cd ./DSI-720x1280_2lanes_6.12
+else
+cd ./DSI-720x1280_2lanes_6.18
+fi
+elif [ $dsi_ch -eq 4 ]; then
+if [[ "$deb_version" < "13.5" ]]; then
+cd ./DSI-720x1280_4lanes_6.12
+else
+cd ./DSI-720x1280_4lanes_6.18
+fi
+fi
+
+sudo make clean
+sudo make
+sudo make install
+sudo cp -rf $PWD/../overlays/vc4-kms-dsi-qdtft-panel.dtbo /boot/firmware/overlays
+sudo reboot
