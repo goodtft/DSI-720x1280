@@ -80,7 +80,7 @@ static int qd_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int val)
 	regmap_write(lcd_state->regmap, REG_LCD_CTR, last_val);
 
 	mutex_unlock(&lcd_state->lock);
-	
+
 	return 0;
 }
 
