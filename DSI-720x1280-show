@@ -44,9 +44,49 @@ sudo rm -rf /home/$username/.current_installed
 fi
 }
 
+bind_touch()
+{
+if [ ! -f "$rc_file" ]; then
+sudo touch "$rc_file"
+sudo echo "<?xml version=\"1.0\"?>" >> "$rc_file"
+sudo echo "<openbox_config xmlns=\"http://openbox.org/3.4/rc\">" >> "$rc_file"
+sudo echo "<touch deviceName=\"Goodix Capacitive TouchScreen\" mapToOutput=\"$dsi_num\" mouseEmulation=\"no\"/>" >> "$rc_file"
+sudo echo "</openbox_config>" >> "$rc_file"
+if [ -n "$labwc_pid" ] && [ "$labwc_pid" -gt 0 ]; then
+LABWC_PID=$labwc_pid labwc --reconfigure
+fi
+else
+grep -q "Goodix" "$rc_file"
+if [ $? -ne 0 ]; then
+sed -i "/<\/openbox_config>/i\  <touch deviceName=\"Goodix Capacitive TouchScreen\" mapToOutput=\"$dsi_num\" mouseEmulation=\"no\"/>" "$rc_file"
+if [ -n "$labwc_pid" ] && [ "$labwc_pid" -gt 0 ]; then
+LABWC_PID=$labwc_pid labwc --reconfigure
+fi
+else
+grep -q "DSI-1" "$rc_file"
+if [ $? -ne 0 ] && [[ "$dsi_num" == "DSI-1" ]]; then
+sed -i "/<\/openbox_config>/i\  <touch deviceName=\"Goodix Capacitive TouchScreen\" mapToOutput=\"DSI-1\" mouseEmulation=\"no\"/>" "$rc_file"
+if [ -n "$labwc_pid" ] && [ "$labwc_pid" -gt 0 ]; then
+LABWC_PID=$labwc_pid labwc --reconfigure
+fi
+fi
+grep -q "DSI-0" "$rc_file"
+if [ $? -ne 0 ] && [[ "$dsi_num" == "DSI-0" ]]; then
+sed -i "/<\/openbox_config>/i\  <touch deviceName=\"Goodix Capacitive TouchScreen\" mapToOutput=\"DSI-0\" mouseEmulation=\"no\"/>" "$rc_file"
+if [ -n "$labwc_pid" ] && [ "$labwc_pid" -gt 0 ]; then
+LABWC_PID=$labwc_pid labwc --reconfigure
+fi
+fi
+fi
+fi
+}
+
 username=`logname | tr -d '\n'`
 deb_version=`cat /etc/debian_version | tr -d '\n'`
 ko_result=0
+rc_file=/home/$username/.config/labwc/rc.xml
+dsi_num=DSI-1
+labwc_pid=`pgrep labwc | tr -d '\n'`
 
 #configue config.txt
 if [ $# -eq 0 ]; then
@@ -81,6 +121,7 @@ elif [ $# -eq 2 ]; then
 if [ "$1" == "i2c0" ] || [ "$1" == "i2c1" ]; then
 if [ "$2" == "dsi0" ]; then
 clean_config
+dsi_num=DSI-0
 sudo echo "dtoverlay=vc4-kms-dsi-qdtft-panel,$1,$2" >> /boot/firmware/config.txt
 else
 echo -e "\033[31mThe second argument is invalid.\033[0m"
@@ -121,6 +162,7 @@ exit
 fi
 sudo make install
 sudo cp -rf $PWD/../overlays/vc4-kms-dsi-qdtft-panel.dtbo /boot/firmware/overlays
+bind_touch
 sudo touch /home/$username/.current_installed
 sudo echo "720x1280" > /home/$username/.current_installed 
 sudo reboot
